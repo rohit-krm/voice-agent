@@ -6,14 +6,14 @@
   let uploadedFileBase64 = null;
   let uploadedMimeType = null;
 
-  // 1. Floating Mobile-Friendly UI
+  // 1. Floating UI
   const bar = document.createElement('div');
   bar.id = 'rohit-ai-agent-bar';
   bar.innerHTML = `
     <div style="position:fixed;bottom:12px;left:12px;right:12px;z-index:999999;background:#0f172a;color:#fff;padding:12px;border-radius:14px;box-shadow:0 10px 25px rgba(0,0,0,0.5);border:1px solid #38bdf8;font-family:sans-serif;max-width:480px;margin:auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <span style="font-weight:bold;font-size:13px;color:#38bdf8;">🤖 Live Form Agent</span>
-        <span id="ai-status" style="font-size:11px;color:#94a3b8;">Ready</span>
+        <span id="ai-status" style="font-size:11px;color:#34d399;">Ready</span>
         <button id="ai-close" style="background:none;border:none;color:#f87171;font-size:16px;cursor:pointer;">✕</button>
       </div>
       
@@ -26,7 +26,7 @@
       </div>
 
       <div style="display:flex;gap:6px;">
-        <input id="ai-cmd" type="text" placeholder="Ya yahan likhein (e.g. Form bhar do)..." style="flex:1;padding:8px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#fff;font-size:12px;" />
+        <input id="ai-cmd" type="text" placeholder="Bolein: Naam Rohit aur Email abc@gmail.com bharo..." style="flex:1;padding:8px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#fff;font-size:12px;" />
         <button id="ai-run" style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:0 14px;font-weight:bold;font-size:12px;cursor:pointer;">Go</button>
       </div>
     </div>
@@ -38,7 +38,7 @@
 
   document.getElementById('ai-close').onclick = () => bar.remove();
 
-  // 2. File Upload Handler (Image / PDF)
+  // 2. File Upload
   document.getElementById('ai-file').onchange = function (e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -47,24 +47,24 @@
     reader.onload = function () {
       uploadedFileBase64 = reader.result.split(',')[1];
       document.getElementById('ai-file-label').innerText = "✅ " + file.name.slice(0, 14);
-      statusEl.innerText = "Doc Loaded";
+      statusEl.innerText = "Doc Ready";
     };
     reader.readAsDataURL(file);
   };
 
-  // 3. Voice Input (Web Speech API)
+  // 3. Voice Input
   document.getElementById('ai-mic').onclick = function () {
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) return alert("Browser voice support nahi karta.");
     const rec = new SpeechRec();
-    rec.lang = 'hi-IN'; // Hindi + English mix samajhta hai
+    rec.lang = 'hi-IN';
     statusEl.innerText = "Sun raha hun...";
     rec.onresult = (e) => {
       const text = e.results[0][0].transcript;
       cmdInput.value = text;
       executeAgent(text);
     };
-    rec.onerror = () => (statusEl.innerText = "Mic Error");
+    rec.onerror = (e) => (statusEl.innerText = "Mic: " + e.error);
     rec.start();
   };
 
@@ -72,104 +72,94 @@
     if (cmdInput.value.trim()) executeAgent(cmdInput.value.trim());
   };
 
-  // 4. DOM Scanner (Page ke inputs aur buttons nikalna)
+  // 4. Smart DOM Scanner (Google Forms + Normal Sites)
   function scanPageElements() {
     const elements = [];
-    document.querySelectorAll('input, textarea, select, button, [role="button"], [role="radio"], [role="checkbox"]').forEach((el, idx) => {
-      if (el.closest('#rohit-ai-agent-bar') || el.type === 'hidden') return;
+    document.querySelectorAll('input:not([type="hidden"]), textarea, select, button, [role="button"], [role="radio"], [role="checkbox"]').forEach((el, idx) => {
+      if (el.closest('#rohit-ai-agent-bar')) return;
       el.setAttribute('data-ai-id', idx);
       
       let label = el.getAttribute('aria-label') || el.placeholder || el.name || el.innerText || "";
-      // Google Forms ke question text ko dhoondhna
       const parentQuestion = el.closest('[role="listitem"]');
       if (parentQuestion) {
         const heading = parentQuestion.querySelector('[role="heading"]');
-        if (heading) label = heading.innerText + " | " + label;
+        if (heading) label = heading.innerText.replace(/\*/g, '').trim();
       }
 
       elements.push({
         id: idx,
         tag: el.tagName.toLowerCase(),
         type: el.type || el.getAttribute('role') || '',
-        label: label.trim().slice(0, 100)
+        question_or_label: label.trim().slice(0, 120)
       });
     });
     return elements;
   }
 
-  // 5. Gemini AI Execution Engine
+  // 5. Gemini API Call
   async function executeAgent(userCommand) {
-    statusEl.innerText = "Soch raha hun...";
+    statusEl.innerText = "AI soch raha hai...";
     const domMap = scanPageElements();
 
-    const prompt = `
-You are a live browser form-filling agent.
-User Voice/Text Command: "${userCommand}"
+    const prompt = `You are a form-filling assistant.
+User said: "${userCommand}"
+Form fields on page: ${JSON.stringify(domMap)}
 
-Available Page Elements (JSON):
-${JSON.stringify(domMap)}
-
-Instructions:
-1. Analyze the user's command and any attached document/image.
-2. Match the required data to the correct element 'id' from Available Page Elements.
-3. Return ONLY a valid JSON array of actions. No markdown, no explanation.
-Format:
-[
-  {"id": 2, "action": "type", "value": "Rohit Kumar Maurya"},
-  {"id": 5, "action": "click"}
-]
-Supported actions: "type" (for text/email/number inputs), "click" (for buttons, radio, checkboxes).
-`;
+Task: Map user's spoken info (or attached document info) to the matching form field IDs.
+Even if user just speaks a name like "Rohit Maurya", match it to the "Name" input field!
+Return ONLY a valid JSON array. Example: [{"id": 1, "action": "type", "value": "Rohit Maurya"}]
+Use action "type" for text/textarea inputs, and "click" for buttons/radio/checkboxes.`;
 
     const parts = [{ text: prompt }];
     if (uploadedFileBase64) {
-      parts.push({
-        inline_data: { mime_type: uploadedMimeType, data: uploadedFileBase64 }
-      });
+      parts.push({ inline_data: { mime_type: uploadedMimeType, data: uploadedFileBase64 } });
     }
 
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts }] })
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
       });
 
       const data = await res.json();
-      let rawText = data.candidates[0].content.parts[0].text;
-      rawText = rawText.replace(/```json|```/g, '').trim();
+      if (data.error) {
+        statusEl.innerText = "API Error: " + data.error.message.slice(0, 35);
+        return;
+      }
+
+      const rawText = data.candidates[0].content.parts[0].text;
       const actions = JSON.parse(rawText);
 
-      // 6. Execute Actions on Live Page
-      const logRecord = {};
+      // 6. Google Forms Compatible Value Setter
       actions.forEach((act) => {
         const target = document.querySelector(`[data-ai-id="${act.id}"]`);
         if (!target) return;
 
         if (act.action === 'type') {
           target.focus();
-          target.value = act.value;
+          const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set ||
+                               Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+          if (nativeSetter && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+            nativeSetter.call(target, act.value);
+          } else {
+            target.value = act.value;
+          }
           target.dispatchEvent(new Event('input', { bubbles: true }));
           target.dispatchEvent(new Event('change', { bubbles: true }));
-          logRecord[act.id] = act.value;
+          target.blur();
         } else if (act.action === 'click') {
           target.click();
         }
       });
 
-      // Optional: Log to Google Sheet
-      if (SHEET_URL && Object.keys(logRecord).length > 0) {
-        fetch(SHEET_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          body: JSON.stringify({ url: window.location.href, command: userCommand, data: logRecord })
-        });
-      }
-
-      statusEl.innerText = `Done (${actions.length} actions)`;
+      statusEl.innerText = `✅ Filled (${actions.length})`;
     } catch (err) {
-      console.error(err);
-      statusEl.innerText = "Error! Console dekhein";
+      console.error("Agent Error:", err);
+      statusEl.innerText = "Err: " + err.message.slice(0, 30);
     }
   }
 })();
