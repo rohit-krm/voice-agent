@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Form AI Agent - Setup</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: #0f172a; color: #f8fafc; padding: 20px; max-width: 500px; margin: auto; }
+    .card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; }
+    h2 { margin-top: 0; font-size: 1.3rem; color: #38bdf8; }
+    label { display: block; margin: 12px 0 6px; font-size: 0.9rem; color: #cbd5e1; }
+    input, textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 0.95rem; }
+    button { width: 100%; padding: 12px; margin-top: 15px; border: none; border-radius: 8px; background: #0284c7; color: white; font-weight: 600; font-size: 1rem; cursor: pointer; }
+    button:active { background: #0369a1; }
+    .code-box { margin-top: 15px; display: none; }
+    .note { font-size: 0.82rem; color: #94a3b8; line-height: 1.4; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>⚡ Voice Form AI Agent</h2>
+    <p class="note">Apni Gemini API Key daalein. Ye aapka personal Bookmarklet code generate karega jo kisi bhi website ke upar AI Agent launch kar dega.</p>
+    
+    <label>Gemini API Key</label>
+    <input type="password" id="apiKey" placeholder="AIzaSy..." />
+
+    <label>Google Sheet Webhook URL (Optional)</label>
+    <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/.../exec" />
+
+    <button onclick="generateCode()">Generate Bookmarklet</button>
+
+    <div class="code-box" id="outputBox">
+      <label>1. Is Code ko Copy Karein:</label>
+      <textarea id="bmCode" rows="4" readonly></textarea>
+      <button onclick="copyCode()" style="background:#10b981;">Copy Code</button>
+      <p class="note">
+        <b>Mobile Chrome mein kaise lagayein:</b><br>
+        1. Kisi bhi page ko Bookmark (★) karein.<br>
+        2. Bookmark ko Edit karein, Naam rakhein <b>AI Agent</b>.<br>
+        3. URL hata kar ye copy kiya hua code paste karke Save karein.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    function generateCode() {
+      const key = document.getElementById('apiKey').value.trim();
+      const sheet = document.getElementById('sheetUrl').value.trim();
+      if (!key) return alert("Pehle Gemini API Key daalein!");
+
+      const hostUrl = window.location.origin + "/agent.js";
+      const script = `javascript:(function(){window.__AI_KEY__="${key}";window.__SHEET_URL__="${sheet}";var s=document.createElement('script');s.src="${hostUrl}?t="+Date.now();document.body.appendChild(s);})();`;
+      
+      document.getElementById('bmCode').value = script;
+      document.getElementById('outputBox').style.display = 'block';
+    }
+
+    function copyCode() {
+      const box = document.getElementById('bmCode');
+      box.select();
+      navigator.clipboard.writeText(box.value);
+      alert("Code Copied! Ab ise Chrome Bookmark ke URL mein paste karein.");
+    }
+  </script>
+</body>
+</html>
